@@ -17,6 +17,9 @@ class Categories(models.Model):
     class Meta:
         managed = False
         db_table = 'Categories'
+    
+    def get_products(self):
+        return Products.objects.filter(categoryid=self.categoryid)
 
 
 class Customercustomerdemo(models.Model):
@@ -90,6 +93,18 @@ class Employees(models.Model):
     class Meta:
         managed = False
         db_table = 'Employees'
+    
+    def get_ordenes(self):
+        return Orders.objects.filter(employeeid=self.employeeid)
+
+    def calcular_total_ordenes(self):
+        resultado = int()
+        ordenes = self.get_ordenes()
+        for orden in ordenes:
+            total = orden.calcular_total()
+            print(total)
+            resultado += total
+        return resultado
 
 
 class Orderdetails(models.Model):
@@ -103,7 +118,12 @@ class Orderdetails(models.Model):
         managed = False
         db_table = 'OrderDetails'
         unique_together = (('orderid', 'productid'),)
+    
+    def get_product(self):
+        return Products.objects.get(productid=self.productid)
 
+    def calcular_precio(self):
+        return self.unitprice*self.quantity
 
 class Orders(models.Model):
     orderid = models.AutoField(db_column='OrderID', primary_key=True)  # Field name made lowercase.
@@ -124,6 +144,16 @@ class Orders(models.Model):
     class Meta:
         managed = False
         db_table = 'Orders'
+    
+    def calcular_total(self):
+        total = int()
+        detalles_ordenes = Orderdetails.objects.filter(orderid=self.orderid)
+        for detalle in detalles_ordenes:
+            total += detalle.calcular_precio()
+        return total
+
+    def get_detalles(self):
+        return Orderdetails.objects.filter(orderid=self.orderid)
 
 
 class Products(models.Model):
@@ -136,7 +166,7 @@ class Products(models.Model):
     unitsinstock = models.SmallIntegerField(db_column='UnitsInStock', blank=True, null=True)  # Field name made lowercase.
     unitsonorder = models.SmallIntegerField(db_column='UnitsOnOrder', blank=True, null=True)  # Field name made lowercase.
     reorderlevel = models.SmallIntegerField(db_column='ReorderLevel', blank=True, null=True)  # Field name made lowercase.
-    discontinued = models.TextField(db_column='Discontinued')  # Field name made lowercase. This field type is a guess.
+    discontinued = models.BooleanField(db_column='Discontinued')  # Field name made lowercase. This field type is a guess.
 
     class Meta:
         managed = False

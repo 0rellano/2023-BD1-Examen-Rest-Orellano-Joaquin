@@ -74,11 +74,12 @@ class SuppliersSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ProductsSerializer(serializers.ModelSerializer):
-    # supplierid = SuppliersSerializer(many=False)
-    # categoryid = CategoriesSerializer(many=False)
+    supplierid = SuppliersSerializer(many=False)
+    categoryid = CategoriesSerializer(many=False)
     class Meta:
         model = Products
         fields = '__all__'
+
 
 
 class OrderdetailsSerializer(serializers.ModelSerializer):

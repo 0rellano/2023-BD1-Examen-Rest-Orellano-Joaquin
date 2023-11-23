@@ -7,7 +7,6 @@ from django.http import Http404
 
 from api.models import Customers, Categories, Employees, Suppliers, Shippers, Orders, Orderdetails, Products
 from api.serializers import CustomersSerializer, CategoriesSerializer, EmployeesSerializer, SuppliersSerializer, ShippersSerializer, OrdersSerializer, OrderdetailsSerializer, ProductsSerializer
-
 def index(request):
     return HttpResponse("Hello, world. You're at dea hablaba en ingles el loco")
 
@@ -127,6 +126,7 @@ class orderdetails(BaseView):
     model = Orderdetails
     serializer = OrderdetailsSerializer
 
+# esta funcion esta hecha asi porque mis vistas base no estan hechas para modelos con multiples pk
 def orderdetail_id(request, orderid, productid):
     try:
         orderDetail = Orderdetails.objects.get(orderid=orderid, productid=productid)
@@ -146,10 +146,10 @@ def orderdetail_id(request, orderid, productid):
     
     elif request.method == 'DELETE':
         orderDetail.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_200_OK)
       
 @api_view(['GET'])
-def prueba1(request):
+def requestparamas(request):
 	orders = Orders.objects.all()
 	if request.GET.get('fechaMayor') and request.GET.get('fechaMenor'):
 		orders = Orders.objects.filter(orderdate__range=(request.GET.get('fechaMenor'), request.GET.get('fechaMayor')))
@@ -161,14 +161,92 @@ def prueba1(request):
 	serializer = OrdersSerializer(orders, many=True)
 	return Response(serializer.data, status=status.HTTP_200_OK)
 
-def prueba2(request):
-		customers = Customers.objects.all()
-		if request.GET.get('comienza'):
-			customers.filter(contactname__startswith)=request.GET.get('comienza'))
-		if request.GET.get('termina'):
-			customers.filter(contactname__endswith)=request.GET.get('termina'))
-		if request.GET.get('contiene'):
-			customers.filter(contactname__contains)=request.GET.get('contiene'))
-		serializer = CustomersSerializer(customers, many=True)
-		return Response(serializer.data, status=status.HTTP_200_OK)
+@api_view(['GET'])
+def filtos(request):
+	customers = Customers.objects.all()
+	if request.GET.get('comienza'):
+		customers.filter(contactname__startswith=request.GET.get('comienza'))
+	if request.GET.get('termina'):
+		customers.filter(contactname__endswith=request.GET.get('termina'))
+	if request.GET.get('contiene'):
+		customers.filter(contactname__contains=request.GET.get('contiene'))
+	serializer = CustomersSerializer(customers, many=True)
+	return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def prueba_endpoint1(request):
+     if request.method == 'GET':
+        resultados = []
+        idcategoria = int(request.GET.get('categoryid'))
+        ventasmin = int(request.GET.get('ventasmin'))
+        try:
+             categoria = Categories.objects.get(categoryid=idcategoria)
+        except Categories.DoesNotExist:
+             return Response(status=status.HTTP_404_NOT_FOUND)
+        
+        for empleado in Employees.objects.all():
+             totalempleado = empleado.calcular_total_ordenes()
+             ordenes = empleado.get_ordenes()
+             for orden in ordenes:
+                detalles = orden.get_detalles()
+                for detalle in detalles:
+                     product = detalle.productid
+                     if product.categoryid == categoria and totalempleado>ventasmin:
+                          if not empleado in resultados:
+                            resultados.append(empleado)
+        if len(resultados) == 0:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        serialize = EmployeesSerializer(resultados, many=True)
+        return Response(serialize.data, status=status.HTTP_200_OK)
+
+
+@api_view(['PUT'])
+def prueba_endpoint2(request):
+    fecha_inicio = int(request.GET.get('fechainicio'))
+    id_categoria = int(request.GET.get('categoryid'))
+    ventas_requeridas = int(request.GET.get('ventasrequeridas'))
+    aumento = request.data['aumento']
+    id_shipper = request.data['shipperid']
+
+    try:
+        categoria = Categories.objects.get(categoryid=id_categoria)
+    except Categories.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+        
+
+    productos = []
+
+    # productos y punto f
+    ordenes = Orders.objects.filter(orderdate__gt=fecha_inicio)
+    for orden in ordenes:
+        detalles = orden.get_detalles()
+        for detalle in detalles:
+            producto = detalle.productid
+            if producto.categories_id == categoria:
+                 productos.append(producto)
+
+    # punto g y h
+    for producto in productos:
+        producto.unitprice = producto.unitprice + (producto.unitprice * aumento)
+
+        ventas = int()
+        detalle_ordenes  = Orderdetails.objects.filter(producto.productid)
+        for detalle in detalle_ordenes:
+            ventas += detalle.quantity
+        if ventas >= ventas_requeridas*2:
+            producto.unitprice = producto.unitprice + (producto.unitprice * aumento*2)
+        else:
+            producto.unitprice = producto.unitprice + (producto.unitprice * aumento)
+            producto.discontinued = True
+        producto.save()
+    
+    if len(producto) == 0:
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    serializer = ProductsSerializer(productos, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+     
+          
 
